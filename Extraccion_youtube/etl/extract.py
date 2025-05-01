@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict
 from tqdm import tqdm
 
+#¿Que_se_dice?
 
 def get_video_list(channel_url: str) -> List[Dict]:
     """Devuelve una lista de videos del canal con título, ID y duración."""
