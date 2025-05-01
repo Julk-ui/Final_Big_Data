@@ -1,0 +1,9 @@
+typer==0.3.2
+colorama==0.4.4
+shellingham==1.4.0
+pytest==6.2.4
+SpeechRecognition==3.14.2
+pyttsx3==2.90
+pymongo==4.6.1
+youtube-transcript-api==1.0.3
+yt-dlp
