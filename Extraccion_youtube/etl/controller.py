@@ -1,45 +1,23 @@
-"""This module provides the RP To-Do model-controller."""
+"""Controlador para cargar videos extraídos en MongoDB."""
 
-from pathlib import Path
-from typing import Any, Dict, List, NamedTuple
-
-from etl import DB_READ_ERROR, ID_ERROR, extract
-from etl.database import DatabaseHandler
+from typing import List, Dict
+from Extraccion_youtube.etl.database import DatabaseHandler
 
 
-class CurrentTodo(NamedTuple):
-    todo: Dict[str, Any]
-    error: int
+class VideoController:
+    def __init__(self):
+        self.db = DatabaseHandler()
 
+    def insertar_videos(self, lista_videos: List[Dict]) -> int:
+        """
+        Inserta videos con subtítulos o con error identificable en MongoDB.
+        Filtra los que tengan estado 'ok', 'sin_subtitulos' o 'error_general'.
+        """
+        videos_validos = [
+            v for v in lista_videos
+            if v.get("estado") in ("ok", "sin_subtitulos", "error_general")
+        ]
 
-class Todoer:
-    def __init__(self, db_path: Path) -> None:
-        self._db_handler = DatabaseHandler(db_path)
-
-    def add(self, path: str = '') -> CurrentTodo:
-        """Add a new text to the database."""
-        result = extract.extract_audio(path)
-        regex = extract.regex(result)
-
-        todo = {
-            "Text": result,
-            "Path": path,
-            "BigData": regex,
-        }
-
-        read = self._db_handler.read_todos()
-        if read.error == DB_READ_ERROR:
-            return CurrentTodo(todo, read.error)
-        read.todo_list.append(todo)
-        write = self._db_handler.write_todos(read.todo_list)
-        return CurrentTodo(todo, write.error)
-
-    def get_todo_list(self) -> List[Dict[str, Any]]:
-        """Return the current to-do list."""
-        read = self._db_handler.read_todos()
-        return read.todo_list
-
-    def remove_all(self) -> CurrentTodo:
-        """Remove all to-dos from the database."""
-        write = self._db_handler.write_todos([])
-        return CurrentTodo({}, write.error)
+        cantidad = self.db.insert_many_videos(videos_validos)
+        print(f"✅ {cantidad} videos insertados en MongoDB.")
+        return cantidad
