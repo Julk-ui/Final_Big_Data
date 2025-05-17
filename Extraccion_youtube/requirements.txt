@@ -9,3 +9,6 @@ youtube-transcript-api==1.0.3
 yt-dlp
 pandas
 openpyxl
+streamlit
+networkx
+matplotlib
