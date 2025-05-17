@@ -1,18 +1,14 @@
-"""This module provides the RP To-Do database functionality with MongoDB."""
+"""Este módulo proporciona la funcionalidad para cargar videos extraídos a MongoDB."""
 
-from typing import Any, Dict, List, NamedTuple
+from typing import Any, Dict, List
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
-from etl.extract import extract_audio
-from etl.extract import regex
-from etl.extract import extract_youtube_subtitles
-
-from etl import DB_READ_ERROR, DB_WRITE_ERROR, SUCCESS
 
 # Configuración de MongoDB
-MONGO_URI = "mongodb+srv://msalazarp:Bigdata1@bigdata.bokez.mongodb.net/?retryWrites=true&w=majority&appName=BigData"
-DB_NAME = "ETL_database"
-COLLECTION_NAME = "audios"
+MONGO_URI = "mongodb+srv://Julk89:RkiDLsRMprjpxM2i@cluster0.g4h8o.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+#MONGO_URI = "mongodb+srv://msalazarp:Bigdata1@bigdata.bokez.mongodb.net/?retryWrites=true&w=majority&appName=BigData"
+DB_NAME = "Youtube_database"
+COLLECTION_NAME = "subtitulos"
 
 # Conexión global a MongoDB
 client = MongoClient(MONGO_URI)
@@ -20,49 +16,36 @@ db = client[DB_NAME]
 collection = db[COLLECTION_NAME]
 
 
-class DBResponse(NamedTuple):
-    todo_list: List[Dict[str, Any]]
-    error: int
-
-
 class DatabaseHandler:
     def __init__(self):
         """Inicializa la conexión a MongoDB."""
-        self.collection = collection  # Usa la conexión global
+        self.collection = collection
 
-    def add_audio(self, path: str) -> Dict[str, Any]:
-        """Extrae texto de un audio y lo guarda en MongoDB."""
-        if not path:
-            raise ValueError("El 'path' no puede estar vacío.")
+    def insert_many_videos(self, videos: List[Dict[str, Any]]) -> int:
+        """
+        Inserta múltiples documentos de videos en MongoDB.
+        Evita duplicados usando 'video_id' como campo clave.
+        """
+        if not videos:
+            return 0
 
-        # Extraer texto del audio
-        text = extract_youtube_subtitles(path)
+        count = 0
+        for video in videos:
+            try:
+                if not self.collection.find_one({"video_id": video["video_id"]}):
+                    self.collection.insert_one(video)
+                    count += 1
+            except PyMongoError as e:
+                print(f"⚠️ Error al insertar {video.get('video_id')}: {e}")
+                continue
 
-        # Verificar si el texto se extrajo correctamente
-        if not text or "No se pudo reconocer el audio" in text:
-            raise RuntimeError(
-                "El audio no contiene texto válido o no pudo ser procesado."
-            )
-
-        document = {"Path": path, "Text": text, "BigData": regex(text)}
-        try:
-            result = self.collection.insert_one(document)
-            document["_id"] = str(result.inserted_id)
-            return document
-        except PyMongoError as e:
-            raise RuntimeError(f"Error al insertar en MongoDB: {e}")
-
-    def get_audios(self) -> List[Dict[str, Any]]:
-        """Obtener todos los audios de MongoDB con todos los campos."""
-        try:
-            return list(self.collection.find({}, {"_id": 0}))  # No devolver `_id`
-        except PyMongoError as e:
-            raise RuntimeError(f"Error al leer desde MongoDB: {e}")
-
+        return count
+    
     def remove_all(self) -> int:
-        """Elimina todos los documentos de la colección."""
+        """Elimina todos los documentos de la colección de videos."""
         try:
             result = self.collection.delete_many({})
-            return result.deleted_count  # Número de documentos eliminados
-        except PyMongoError as e:
+            return result.deleted_count
+        except Exception as e:
             raise RuntimeError(f"Error al eliminar documentos: {e}")
+

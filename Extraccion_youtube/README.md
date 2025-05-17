@@ -22,8 +22,18 @@ python -m etl init
 
 3. options :
 
-add text
-python -m etl add c:\images\prueba.png
+
+# Verificar conexión
+python -m Extraccion_youtube.etl.cli init
+
+# Extraer y cargar videos
+python -m Extraccion_youtube.etl.cli extraer-y-cargar
+🔗 Por favor, ingresa la URL del canal de YouTube:
+https://www.youtube.com/@Cconstitucional
+
+
+# Limpiar la base de datos (con confirmación)
+python -m Extraccion_youtube.etl.cli limpiar-bd
 
 list text
 python -m etl list
@@ -39,3 +49,5 @@ SpeechRecognition==3.14.2
 pyttsx3==2.90
 pymongo==4.6.1
 youtube-transcript-api==1.0.3
+
+streamlit run etl/App.py

@@ -1,91 +1,60 @@
-"""This module provides the RP To-Do CLI."""
-
-from pathlib import Path
-from typing import List, Optional
-
+"""CLI para extracción y carga de videos con subtítulos a MongoDB."""
 
 import typer
-
-from etl import ERRORS, __app_name__, __version__, config, controller, database
+from Extraccion_youtube.etl.extract import extract_all_videos_batching
+from Extraccion_youtube.etl.controller import VideoController
+from Extraccion_youtube.etl.database import DatabaseHandler
 
 app = typer.Typer()
 
 
 @app.command()
 def init() -> None:
-    """Initialize the MongoDB database."""
+    """Verifica conexión con MongoDB."""
     try:
-        # Verificamos la conexión a MongoDB
-        db_handler = database.DatabaseHandler()
-        typer.secho("Connected to MongoDB successfully!", fg=typer.colors.GREEN)
+        _ = DatabaseHandler()
+        typer.secho("✅ Conexión a MongoDB exitosa.", fg=typer.colors.GREEN)
     except Exception as e:
-        typer.secho(f"Failed to connect to MongoDB: {str(e)}", fg=typer.colors.RED)
+        typer.secho(f"❌ Falló la conexión: {str(e)}", fg=typer.colors.RED)
         raise typer.Exit(1)
 
 
-def get_todoer():
-    """Obtiene la conexión a MongoDB."""
-    return database.DatabaseHandler()
+@app.command()
+def extraer_y_cargar(
+    channel_url: str = typer.Option(None, "--channel-url", "-u", help="URL del canal de YouTube"),
+    max_threads: int = 4,
+    batch_size: int = 100
+) -> None:
+    """Extrae videos del canal y los carga a MongoDB."""
+    if not channel_url:
+        channel_url = typer.prompt("🔗 Por favor, ingresa la URL del canal de YouTube")
+
+    print("🟢 Ejecutando función extraer_y_cargar()")
+    typer.secho("⏳ Iniciando extracción...", fg=typer.colors.BLUE)
+
+    resultados = extract_all_videos_batching(channel_url, max_threads=max_threads, batch_size=batch_size)
+
+    typer.secho(f"🎬 {len(resultados)} videos extraídos. Cargando a MongoDB...", fg=typer.colors.BLUE)
+    controller = VideoController()
+    count = controller.insertar_videos(resultados)
+
+    typer.secho(f"✅ {count} videos insertados correctamente.", fg=typer.colors.GREEN)
 
 
 @app.command()
-def add(path: str) -> None:
-    """Add a new audio file to the database."""
-    db_handler = database.DatabaseHandler()
-    # Simulando extracción de texto (esto deberías reemplazarlo con tu lógica real)
-    text = "Texto extraído del audio"
-    bigdata = "Datos adicionales"
+def limpiar_bd(force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Confirma la eliminación de todos los videos.")) -> None:
+    """Elimina todos los videos en la base de datos."""
+    if not force:
+        typer.confirm("¿Estás seguro de que deseas eliminar todos los videos?", abort=True)
 
-    audio = db_handler.add_audio(path)
-
-    typer.secho(f"Audio agregado: {audio}", fg=typer.colors.GREEN)
-
-
-@app.command(name="list")
-def list_all() -> None:
-    """List all audio files from the database."""
-    db_handler = database.DatabaseHandler()
-    audio_list = db_handler.get_audios()
-
-    if not audio_list:
-        typer.secho("No hay audios en la base de datos.", fg=typer.colors.RED)
-        raise typer.Exit()
-
-    typer.secho("\nLista de audios:\n", fg=typer.colors.BLUE, bold=True)
-
-    # Obtener todas las claves (columnas) de los documentos
-    all_keys = set()
-    for audio in audio_list:
-        all_keys.update(audio.keys())
-
-    all_keys = sorted(all_keys)  # Ordenamos las claves
-
-    # Imprimir encabezado
-    headers = " | ".join(all_keys)
-    typer.secho(headers, fg=typer.colors.BLUE, bold=True)
-    typer.secho("-" * len(headers), fg=typer.colors.BLUE)
-
-    # Imprimir cada documento
-    for audio in audio_list:
-        row = " | ".join(str(audio.get(key, "")) for key in all_keys)
-        typer.secho(row, fg=typer.colors.BLUE)
-
-    typer.secho("-" * len(headers) + "\n", fg=typer.colors.BLUE)
+    db = DatabaseHandler()
+    eliminados = db.remove_all()
+    typer.secho(f"🗑️ {eliminados} documentos eliminados de MongoDB.", fg=typer.colors.RED)
 
 
-@app.command(name="clear")
-def remove_all(
-    force: bool = typer.Option(
-        ...,
-        prompt="¿Eliminar todos los audios?",
-        help="Forzar eliminación sin confirmación.",
-    ),
-) -> None:
-    """Elimina todos los documentos de la base de datos."""
-    db_handler = database.DatabaseHandler()
-
-    if force:
-        deleted_count = db_handler.remove_all()
-        typer.secho(f"Se eliminaron {deleted_count} audios.", fg=typer.colors.GREEN)
-    else:
-        typer.echo("Operación cancelada.")
+if __name__ == "__main__":
+    app()
