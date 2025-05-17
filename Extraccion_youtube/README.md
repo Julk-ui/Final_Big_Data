@@ -50,3 +50,4 @@ pyttsx3==2.90
 pymongo==4.6.1
 youtube-transcript-api==1.0.3
 
+streamlit run etl/App.py
