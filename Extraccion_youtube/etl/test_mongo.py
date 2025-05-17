@@ -13,3 +13,5 @@ try:
 except Exception as e:
     print("❌ Error al conectar a MongoDB:")
     print(e)
+
+#Prueba de Conexion

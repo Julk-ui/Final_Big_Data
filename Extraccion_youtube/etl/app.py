@@ -131,4 +131,4 @@ if video_red:
     else:
         st.warning("No se encontraron relaciones o similitudes para ese video.")
 
-#vers 2.0
+#Con la conexion exitosa
