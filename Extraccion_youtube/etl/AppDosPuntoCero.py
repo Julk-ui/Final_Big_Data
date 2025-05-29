@@ -132,3 +132,41 @@ if video_red:
         st.warning("No se encontraron relaciones o similitudes para ese video.")
 
 #Con la conexion exitosa
+# 7. Visualizar grafo desde archivo de similitudes
+st.header("7. Visualizar grafo de similitud desde archivo JSON")
+
+uploaded_file = st.file_uploader("📁 Carga un archivo JSON con similitudes", type=["json"])
+
+if uploaded_file is not None:
+    try:
+        import json
+        data = json.load(uploaded_file)
+
+        # Verifica si es una lista de diccionarios
+        if isinstance(data, list) and all("videoId_1" in d and "videoId_2" in d and "similitud" in d for d in data):
+            # Construir grafo
+            G = nx.Graph()
+            for item in data:
+                v1 = item["videoId_1"]
+                v2 = item["videoId_2"]
+                sim = item["similitud"]
+                G.add_edge(v1, v2, weight=sim)
+
+            st.success(f"✅ Grafo cargado correctamente con {len(G.nodes)} nodos y {len(G.edges)} relaciones.")
+
+            # Visualizar grafo
+            pos = nx.spring_layout(G, seed=42)
+            fig, ax = plt.subplots(figsize=(10, 8))
+            edge_weights = [G[u][v]['weight'] for u, v in G.edges]
+            nx.draw(G, pos, with_labels=True, node_color="lightgreen", edge_color=edge_weights,
+                    edge_cmap=plt.cm.Blues, node_size=800, font_size=8, width=2)
+            sm = plt.cm.ScalarMappable(cmap=plt.cm.Blues, norm=plt.Normalize(vmin=min(edge_weights), vmax=max(edge_weights)))
+            sm.set_array([])
+            plt.colorbar(sm, ax=ax, label='Similitud')
+            st.pyplot(fig)
+
+        else:
+            st.warning("⚠️ El archivo JSON no contiene la estructura esperada.")
+
+    except Exception as e:
+        st.error(f"❌ Error al procesar el archivo: {e}")
