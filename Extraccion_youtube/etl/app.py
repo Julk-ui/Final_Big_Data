@@ -45,13 +45,18 @@ if video_id:
         st.warning("❌ No se encontró un video con ese ID.")
 
 # 2. Buscar por texto en el título (requiere índice de texto en MongoDB)
-st.header("2. Buscar por texto en el título")
-texto_busqueda = st.text_input("Ingresa una palabra clave para buscar en el título:")
+st.header("2. Buscar por palabra en título o subtítulos")
+texto_busqueda = st.text_input("Ingresa una palabra para buscar en título o subtítulos:")
 
 if texto_busqueda:
-    resultados = collection.find({"$text": {"$search": texto_busqueda}})
-    for video in resultados:
-        st.markdown(f"- 📹 **{video['titulo']}** - [Ver video]({video['url']})")
+    resultados = list(collection.find({"$text": {"$search": texto_busqueda}}))  # 👈 Convertimos el cursor a lista
+    if resultados:
+        for video in resultados:
+            nombre = video.get('titulo', 'Sin título')
+            url = video.get('url', '#')
+            st.markdown(f"- 📹 **{nombre}** - [Ver video]({url})")
+    else:
+        st.warning("❌ No se encontraron resultados para esa búsqueda.")
 
 # 3. Buscar por rango de fechas de descarga
 st.header("3. Buscar por rango de fechas")

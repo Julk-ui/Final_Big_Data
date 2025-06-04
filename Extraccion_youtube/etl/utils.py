@@ -1,20 +1,13 @@
-from neo4j import GraphDatabase, basic_auth
+from pymongo import MongoClient
 
-# Tus credenciales
-uri = "neo4j+s://75905f35.databases.neo4j.io"
-user = "neo4j"
-password = "gXRnVMtlUXW-L1BjZz6R0QDE3XyRul7tvtttVooG3tU"
-database = "neo4j"
+# Conexión a tu base de datos MongoDB
+MONGO_URI = "mongodb+srv://Julk89:RkiDLsRMprjpxM2i@cluster0.g4h8o.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+client = MongoClient(MONGO_URI)
+db = client["Youtube_database"]
+collection = db["subtitulos"]
 
-# Intentar conexión
-driver = GraphDatabase.driver(uri, auth=basic_auth(user, password))
-
-try:
-    with driver.session(database=database) as session:
-        result = session.run("RETURN 1 AS test")
-        print("✅ Conexión exitosa:", result.single()["test"])
-except Exception as e:
-    print("❌ Error al conectar:", e)
-finally:
-    driver.close()
-
+collection.drop_index("nombre_video_text_subtitulos.texto_text")
+collection.create_index(
+    [("titulo", "text"), ("texto.text", "text")],
+    name="titulo_texto_text_index"
+)

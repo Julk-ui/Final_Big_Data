@@ -26,6 +26,10 @@ class DatabaseHandler:
         self.collection = collection
         self.neo4j_driver = GraphDatabase.driver(NEO4J_URI, auth=basic_auth(NEO4J_USER, NEO4J_PASSWORD))
 
+        # ✅ Crear índice de texto si no existe
+        if "titulo_text_index" not in self.collection.index_information():
+            self.collection.create_index([("titulo", "text")], name="titulo_text_index")
+    
     def insert_many_videos(self, videos: List[Dict[str, Any]]) -> int:
         if not videos:
             return 0
