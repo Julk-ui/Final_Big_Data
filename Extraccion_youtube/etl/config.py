@@ -43,3 +43,15 @@ def _create_database(db_path: str) -> int:
     except OSError:
         return DB_WRITE_ERROR
     return SUCCESS
+
+
+# MongoDB
+MONGO_URI = "mongodb+srv://Julk89:RkiDLsRMprjpxM2i@cluster0.g4h8o.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+DB_NAME = "Youtube_database"
+COLLECTION_NAME = "subtitulos"
+
+# Neo4j
+NEO4J_URI = "neo4j+s://75905f35.databases.neo4j.io"
+NEO4J_USER = "neo4j"
+NEO4J_PASSWORD = "gXRnVMtlUXW-L1BjZz6R0QDE3XyRul7tvtttVooG3tU"
+NEO4J_DB = "neo4j"

@@ -5,6 +5,12 @@ import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
 
+# Neo4j
+NEO4J_URI = "neo4j+s://75905f35.databases.neo4j.io"
+NEO4J_USER = "neo4j"
+NEO4J_PASSWORD = "gXRnVMtlUXW-L1BjZz6R0QDE3XyRul7tvtttVooG3tU"
+NEO4J_DB = "neo4j"
+
 # Configuración
 MONGO_URI = "mongodb+srv://Julk89:RkiDLsRMprjpxM2i@cluster0.g4h8o.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 DB_NAME = "Youtube_database"
@@ -88,47 +94,61 @@ if palabra_clave:
     if count == 0:
         st.warning("No se encontraron coincidencias.")
 
-# 5. Ver similitudes de un video específico
-st.header("5. Consultar similitudes de un video")
-video_sim = st.text_input("ID del video para ver sus similitudes:")
+st.header("5. Consultar similitudes desde Neo4j")
+video_sim_neo = st.text_input("🔎 Ingresa el ID del video:")
 
-if video_sim:
-    doc = collection.find_one({"video_id": video_sim})
-    if doc and "similitudes" in doc:
-        df = pd.DataFrame(doc["similitudes"])
-        df = df.sort_values(by="similitud", ascending=False)
-        st.dataframe(df, use_container_width=True)
+if video_sim_neo:
+    from neo4j import GraphDatabase, basic_auth
+
+    def obtener_similitudes(video_id):
+        driver = GraphDatabase.driver(NEO4J_URI, auth=basic_auth(NEO4J_USER, NEO4J_PASSWORD))
+        with driver.session(database=NEO4J_DB) as session:
+            result = session.run("""
+                MATCH (v:Video {video_id: $video_id})-[r:SIMILAR_A]->(otro:Video)
+                RETURN otro.video_id AS relacionado, r.similitud AS similitud
+                ORDER BY r.similitud DESC
+            """, video_id=video_id)
+            data = result.data()
+        driver.close()
+        return pd.DataFrame(data)
+
+    df_sim = obtener_similitudes(video_sim_neo)
+    if not df_sim.empty:
+        st.dataframe(df_sim)
     else:
-        st.warning("No se encontraron similitudes para ese video.")
+        st.warning("⚠️ No se encontraron similitudes para ese video.")
 
-# 6. Buscar red de videos similares por umbral
-st.header("6. Red de relaciones por similitud")
-col1, col2 = st.columns([3, 1])
-with col1:
-    video_red = st.text_input("ID del video base:")
-with col2:
-    umbral = st.slider("Umbral de similitud", min_value=0.0, max_value=1.0, value=0.8)
+st.header("6. Visualizar red de videos similares desde Neo4j")
+video_grafo = st.text_input("🎥 ID del video base para grafo:")
+umbral_neo = st.slider("🎯 Umbral de similitud", min_value=0.0, max_value=1.0, value=0.8)
 
-if video_red:
-    doc = collection.find_one({"video_id": video_red})
-    if doc and "similitudes" in doc:
-        relaciones = [
-            (video_red, sim["video_id"], sim["similitud"])
-            for sim in doc["similitudes"]
-            if sim["similitud"] >= umbral
-        ]
+if video_grafo:
+    import networkx as nx
+    import matplotlib.pyplot as plt
 
+    def construir_grafo_similitud(video_id, umbral):
+        driver = GraphDatabase.driver(NEO4J_URI, auth=basic_auth(NEO4J_USER, NEO4J_PASSWORD))
+        with driver.session(database=NEO4J_DB) as session:
+            result = session.run("""
+                MATCH (v:Video {video_id: $video_id})-[r:SIMILAR_A]->(otro:Video)
+                WHERE r.similitud >= $umbral
+                RETURN v.video_id AS origen, otro.video_id AS destino, r.similitud AS peso
+            """, video_id=video_id, umbral=umbral)
+            relaciones = result.data()
+        driver.close()
         G = nx.Graph()
-        G.add_node(video_red, label=doc["titulo"])
-        for origen, destino, peso in relaciones:
-            G.add_edge(origen, destino, weight=peso)
+        for rel in relaciones:
+            G.add_edge(rel["origen"], rel["destino"], weight=rel["peso"])
+        return G
 
-        st.subheader("🔗 Red de videos relacionados")
-        pos = nx.spring_layout(G, seed=42)
-        fig, ax = plt.subplots()
-        nx.draw(G, pos, with_labels=True, node_color="skyblue", edge_color="gray", node_size=1000, font_size=10)
+    grafo = construir_grafo_similitud(video_grafo, umbral_neo)
+
+    if grafo.number_of_edges() > 0:
+        pos = nx.spring_layout(grafo, seed=42)
+        fig, ax = plt.subplots(figsize=(10, 8))
+        weights = [grafo[u][v]['weight'] for u, v in grafo.edges()]
+        nx.draw(grafo, pos, with_labels=True, node_color='lightblue', edge_color=weights,
+                edge_cmap=plt.cm.Blues, node_size=1000, font_size=10, width=2)
         st.pyplot(fig)
     else:
-        st.warning("No se encontraron relaciones o similitudes para ese video.")
-
-#Con la conexion exitosa
+        st.warning("❌ No hay relaciones por encima del umbral.")

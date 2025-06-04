@@ -12,3 +12,4 @@ openpyxl
 streamlit
 networkx
 matplotlib
+neo4j
