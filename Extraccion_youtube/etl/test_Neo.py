@@ -1,4 +1,4 @@
-from neo4j import GraphDatabase
+Pfrom neo4j import GraphDatabase
 
 # Datos de conexión (usa variables de entorno en producción)
 NEO4J_URI = "neo4j+s://74cd2897.databases.neo4j.io"

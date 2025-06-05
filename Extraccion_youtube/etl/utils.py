@@ -1,13 +1,22 @@
-from pymongo import MongoClient
+# utils.py
+from pathlib import Path
+import streamlit as st
+import base64
 
-# Conexión a tu base de datos MongoDB
-MONGO_URI = "mongodb+srv://Julk89:RkiDLsRMprjpxM2i@cluster0.g4h8o.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-client = MongoClient(MONGO_URI)
-db = client["Youtube_database"]
-collection = db["subtitulos"]
-
-collection.drop_index("nombre_video_text_subtitulos.texto_text")
-collection.create_index(
-    [("titulo", "text"), ("texto.text", "text")],
-    name="titulo_texto_text_index"
-)
+def set_background(image_file):
+    with open(image_file, "rb") as f:
+        data = f.read()
+        encoded = base64.b64encode(data).decode()
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/png;base64,{encoded}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
