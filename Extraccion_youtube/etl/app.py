@@ -4,6 +4,7 @@ from datetime import datetime
 import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
+from neo4j import GraphDatabase, basic_auth
 
 # Neo4j
 NEO4J_URI = "neo4j+s://75905f35.databases.neo4j.io"
@@ -64,7 +65,7 @@ col1, col2 = st.columns(2)
 with col1:
     fecha_inicio = st.date_input("Desde", datetime(2024, 1, 1))
 with col2:
-    fecha_fin = st.date_input("Hasta", datetime.today())
+    fecha_fin = st.date_input("Hasta", datetime(2024,1,2))
 
 if fecha_inicio and fecha_fin:
     resultados = collection.find({
@@ -99,23 +100,26 @@ if palabra_clave:
     if count == 0:
         st.warning("No se encontraron coincidencias.")
 
+# --- Punto 5: Consultar similitudes desde Neo4j ---
 st.header("5. Consultar similitudes desde Neo4j")
 video_sim_neo = st.text_input("🔎 Ingresa el ID del video:")
 
 if video_sim_neo:
-    from neo4j import GraphDatabase, basic_auth
-
     def obtener_similitudes(video_id):
-        driver = GraphDatabase.driver(NEO4J_URI, auth=basic_auth(NEO4J_USER, NEO4J_PASSWORD))
-        with driver.session(database=NEO4J_DB) as session:
-            result = session.run("""
-                MATCH (v:Video {video_id: $video_id})-[r:SIMILAR_A]->(otro:Video)
-                RETURN otro.video_id AS relacionado, r.similitud AS similitud
-                ORDER BY r.similitud DESC
-            """, video_id=video_id)
-            data = result.data()
-        driver.close()
-        return pd.DataFrame(data)
+        try:
+            driver = GraphDatabase.driver(NEO4J_URI, auth=basic_auth(NEO4J_USER, NEO4J_PASSWORD))
+            with driver.session(database=NEO4J_DB) as session:
+                result = session.run("""
+                    MATCH (v:Video {video_id: $video_id})-[r:SIMILAR_A]->(otro:Video)
+                    RETURN otro.video_id AS relacionado, r.similitud AS similitud
+                    ORDER BY r.similitud DESC
+                """, video_id=video_id)
+                data = result.data()
+            driver.close()
+            return pd.DataFrame(data)
+        except Exception as e:
+            st.error(f"❌ Error al consultar Neo4j: {e}")
+            return pd.DataFrame()
 
     df_sim = obtener_similitudes(video_sim_neo)
     if not df_sim.empty:
@@ -123,30 +127,36 @@ if video_sim_neo:
     else:
         st.warning("⚠️ No se encontraron similitudes para ese video.")
 
+
+# --- Punto 6: Visualizar red de videos similares desde Neo4j ---
 st.header("6. Visualizar red de videos similares desde Neo4j")
 video_grafo = st.text_input("🎥 ID del video base para grafo:")
 umbral_neo = st.slider("🎯 Umbral de similitud", min_value=0.0, max_value=1.0, value=0.8)
 
 if video_grafo:
-    import networkx as nx
-    import matplotlib.pyplot as plt
-
     def construir_grafo_similitud(video_id, umbral):
-        driver = GraphDatabase.driver(NEO4J_URI, auth=basic_auth(NEO4J_USER, NEO4J_PASSWORD))
-        with driver.session(database=NEO4J_DB) as session:
-            result = session.run("""
-                MATCH (v:Video {video_id: $video_id})-[r:SIMILAR_A]->(otro:Video)
-                WHERE r.similitud >= $umbral
-                RETURN v.video_id AS origen, otro.video_id AS destino, r.similitud AS peso
-            """, video_id=video_id, umbral=umbral)
-            relaciones = result.data()
-        driver.close()
-        G = nx.Graph()
-        for rel in relaciones:
-            G.add_edge(rel["origen"], rel["destino"], weight=rel["peso"])
-        return G
+        try:
+            driver = GraphDatabase.driver(NEO4J_URI, auth=basic_auth(NEO4J_USER, NEO4J_PASSWORD))
+            with driver.session(database=NEO4J_DB) as session:
+                result = session.run("""
+                    MATCH (v:Video {video_id: $video_id})-[r:SIMILAR_A]->(otro:Video)
+                    WHERE r.similitud >= $umbral
+                    RETURN v.video_id AS origen, otro.video_id AS destino, r.similitud AS peso
+                """, video_id=video_id, umbral=umbral)
+                relaciones = result.data()
+            driver.close()
+            G = nx.Graph()
+            for rel in relaciones:
+                G.add_edge(rel["origen"], rel["destino"], weight=rel["peso"])
+            return G
+        except Exception as e:
+            st.error(f"❌ Error al construir grafo: {e}")
+            return nx.Graph()
 
-    grafo = construir_grafo_similitud(video_grafo, umbral_neo)
+    # No es necesario convertir umbral si en Neo4j ya está como valor entero (0-100)
+    umbral_entero = int(umbral_neo * 100)
+    st.write(f"🎯 Umbral aplicado: {umbral_entero}")
+    grafo = construir_grafo_similitud(video_grafo, umbral_entero)
 
     if grafo.number_of_edges() > 0:
         pos = nx.spring_layout(grafo, seed=42)
