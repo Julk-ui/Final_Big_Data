@@ -13,6 +13,7 @@ st.set_page_config(page_title="Relatoría Aplicación de consulta", layout="wide
 # ✅ Aplica el fondo
 set_background("fondo.png")
 
+
 # Neo4j
 NEO4J_URI = "neo4j+s://75905f35.databases.neo4j.io"
 NEO4J_USER = "neo4j"
@@ -137,6 +138,7 @@ if video_sim_neo:
         st.warning("⚠️ No se encontraron similitudes para ese video.")
 
 # 6. Visualizar red de videos similares desde Neo4j
+
 st.header("6. Visualizar red de videos similares desde Neo4j")
 video_grafo = st.text_input("🎥 ID del video base para grafo:")
 umbral_neo = st.slider("🎯 Umbral de similitud", min_value=0.0, max_value=1.0, value=0.8)
