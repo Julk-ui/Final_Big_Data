@@ -5,6 +5,14 @@ import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
 from neo4j import GraphDatabase, basic_auth
+from utils import set_background  # Esta función ya está bien definida en utils.py
+
+# ✅ Esta debe ser la primera llamada de Streamlit
+st.set_page_config(page_title="Relatoría Aplicación de consulta", layout="wide")
+
+# ✅ Aplica el fondo
+set_background("fondo.png")
+
 
 # Neo4j
 NEO4J_URI = "neo4j+s://75905f35.databases.neo4j.io"
@@ -12,7 +20,7 @@ NEO4J_USER = "neo4j"
 NEO4J_PASSWORD = "gXRnVMtlUXW-L1BjZz6R0QDE3XyRul7tvtttVooG3tU"
 NEO4J_DB = "neo4j"
 
-# Configuración
+# Configuración MongoDB
 MONGO_URI = "mongodb+srv://Julk89:RkiDLsRMprjpxM2i@cluster0.g4h8o.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 DB_NAME = "Youtube_database"
 COLLECTION_NAME = "subtitulos"
@@ -22,8 +30,11 @@ client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 collection = db[COLLECTION_NAME]
 
-st.set_page_config(page_title="Subtítulos YouTube", layout="wide")
-st.title("🔍 Aplicación de consulta de subtítulos YouTube Relatoría")
+st.markdown("""
+    <div style='background-color: rgba(255, 255, 255, 0.85); padding: 20px; border-radius: 10px;'>
+""", unsafe_allow_html=True)
+
+st.title("🔍 Relatoría Aplicación de consulta del Canal De La Corte Costitucional")
 
 # --- Función auxiliar para formatear subtítulos ---
 def mostrar_subtitulos(subtitulos):
@@ -45,12 +56,12 @@ if video_id:
     else:
         st.warning("❌ No se encontró un video con ese ID.")
 
-# 2. Buscar por texto en el título (requiere índice de texto en MongoDB)
+# 2. Buscar por texto en el título
 st.header("2. Buscar por palabra en título o subtítulos")
 texto_busqueda = st.text_input("Ingresa una palabra para buscar en título o subtítulos:")
 
 if texto_busqueda:
-    resultados = list(collection.find({"$text": {"$search": texto_busqueda}}))  # 👈 Convertimos el cursor a lista
+    resultados = list(collection.find({"$text": {"$search": texto_busqueda}}))
     if resultados:
         for video in resultados:
             nombre = video.get('titulo', 'Sin título')
@@ -65,7 +76,7 @@ col1, col2 = st.columns(2)
 with col1:
     fecha_inicio = st.date_input("Desde", datetime(2024, 1, 1))
 with col2:
-    fecha_fin = st.date_input("Hasta", datetime(2024,1,2))
+    fecha_fin = st.date_input("Hasta", datetime(2024, 1, 2))
 
 if fecha_inicio and fecha_fin:
     resultados = collection.find({
@@ -86,7 +97,6 @@ if palabra_clave:
     resultados = collection.find({
         "texto.text": {"$regex": palabra_clave, "$options": "i"}
     })
-
     count = 0
     for video in resultados:
         coincidencias = [sub for sub in video["texto"] if palabra_clave.lower() in sub["text"].lower()]
@@ -100,7 +110,7 @@ if palabra_clave:
     if count == 0:
         st.warning("No se encontraron coincidencias.")
 
-# --- Punto 5: Consultar similitudes desde Neo4j ---
+# 5. Consultar similitudes desde Neo4j
 st.header("5. Consultar similitudes desde Neo4j")
 video_sim_neo = st.text_input("🔎 Ingresa el ID del video:")
 
@@ -127,8 +137,8 @@ if video_sim_neo:
     else:
         st.warning("⚠️ No se encontraron similitudes para ese video.")
 
+# 6. Visualizar red de videos similares desde Neo4j
 
-# --- Punto 6: Visualizar red de videos similares desde Neo4j ---
 st.header("6. Visualizar red de videos similares desde Neo4j")
 video_grafo = st.text_input("🎥 ID del video base para grafo:")
 umbral_neo = st.slider("🎯 Umbral de similitud", min_value=0.0, max_value=1.0, value=0.8)
@@ -142,7 +152,7 @@ if video_grafo:
                     MATCH (v:Video {video_id: $video_id})-[r:SIMILAR_A]->(otro:Video)
                     WHERE r.similitud >= $umbral
                     RETURN v.video_id AS origen, otro.video_id AS destino, r.similitud AS peso
-                """, video_id=video_id, umbral=umbral)
+                """, video_id=video_id, umbral=int(umbral))
                 relaciones = result.data()
             driver.close()
             G = nx.Graph()
@@ -153,7 +163,6 @@ if video_grafo:
             st.error(f"❌ Error al construir grafo: {e}")
             return nx.Graph()
 
-    # No es necesario convertir umbral si en Neo4j ya está como valor entero (0-100)
     umbral_entero = int(umbral_neo * 100)
     st.write(f"🎯 Umbral aplicado: {umbral_entero}")
     grafo = construir_grafo_similitud(video_grafo, umbral_entero)
@@ -167,3 +176,10 @@ if video_grafo:
         st.pyplot(fig)
     else:
         st.warning("❌ No hay relaciones por encima del umbral.")
+
+# Cierre del contenedor visual
+st.markdown("""
+    <div style='background-color: rgba(255, 255, 255, 0.85); padding: 25px; border-radius: 15px;'>
+""", unsafe_allow_html=True)
+
+st.markdown("</div>", unsafe_allow_html=True)
